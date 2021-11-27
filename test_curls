@@ -1,0 +1,2 @@
+curl -vvv localhost:8080/text -XPOST -d'{"text":"test"}'
+curl -vvv localhost:8080/text\?id=2
