@@ -2,23 +2,23 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
-	"sync/atomic"
+	textstore "text_saver/text_store"
 )
-
-const serverAddr = ":8080"
 
 const textRoute = "/text"
 
-var id int64
-var textStore sync.Map
-
 func main() {
+	var port string
+	flag.StringVar(&port, "port", "80", "Exposed port")
+	flag.Parse()
+
 	http.HandleFunc(textRoute, textHandler())
 
+	serverAddr := ":" + port
 	log.Fatal(http.ListenAndServe(serverAddr, nil))
 }
 
@@ -29,6 +29,9 @@ func textHandler() http.HandlerFunc {
 			getSingleText()(w, r)
 		case http.MethodPost:
 			createNewText()(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
 		}
 	}
 }
@@ -52,8 +55,7 @@ func createNewText() http.HandlerFunc {
 			return
 		}
 
-		newID := atomic.AddInt64(&id, 1)
-		textStore.Store(newID, reqBody.Text)
+		newID := textstore.Add(reqBody.Text)
 
 		var respBody textResp
 		respBody.Text = reqBody.Text
@@ -79,14 +81,20 @@ func getSingleText() http.HandlerFunc {
 			return
 		}
 
-		text, ok := textStore.Load(textID)
-		if !ok {
+		text, err := textstore.GetByID(textID)
+		switch err {
+		case nil:
+		case textstore.ErrItemNotFound:
 			w.WriteHeader(http.StatusNotFound)
+			return
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("failed to get text from text store;err=%v", err)
 			return
 		}
 
 		var respBody textResp
-		respBody.Text, _ = text.(string)
+		respBody.Text = text
 		respBody.ID = textID
 
 		writeJSONResponse(w, respBody, http.StatusOK)
@@ -94,6 +102,9 @@ func getSingleText() http.HandlerFunc {
 }
 
 func writeJSONResponse(w http.ResponseWriter, data interface{}, httpStatusCode int) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(httpStatusCode)
+
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -101,6 +112,4 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}, httpStatusCode i
 		return
 	}
 
-	w.WriteHeader(httpStatusCode)
-	w.Header().Add("Content-Type", "application/json")
 }

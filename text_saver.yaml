@@ -1,0 +1,55 @@
+swagger: "2.0"
+info:
+  title: TextSaver
+  description: Used to save and retrieve text strings. The id of the text is provided by the server.
+  version: 1.0.0
+schemes:
+  - http
+paths:
+  /text:
+    get:
+      description: Retrieves a piece of text from the server by providing it's id in query parameters.
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: id
+          type: integer
+      responses:
+        "200":
+          description: 200 OK
+          schema:
+            $ref: "#/definitions/TextResponse"
+        "404":
+          description: 404 Not Found
+        default:
+          description: 500 Internal Server Error
+    post:
+      description: Saves a piece of text to the server using the defined json body.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+            properties:
+              text:
+                type: string
+      responses:
+        "200":
+          description: 200 OK
+          schema:
+            $ref: "#/definitions/TextResponse"
+        default:
+          description: 500 Internal Server Error
+definitions:
+  TextResponse:
+    type: object
+    properties:
+      id:
+        type: integer
+      text:
+        type: string
